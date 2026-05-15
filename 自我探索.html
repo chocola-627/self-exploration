@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>自我探索 v1.4</title>
+<title>自我探索 v1.5</title>
 <style>
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
 :root{
@@ -105,6 +105,7 @@ body{
 .start-btn .sub{display:block;font-size:13px;font-weight:400;opacity:.8;margin-top:4px;}
 
 /* ===== ROLLING ===== */
+#rolling-screen{cursor:pointer;}
 #rolling-screen .action-roller{height:80px;overflow:hidden;text-align:center;}
 #rolling-screen .action-roller .item{
   font-size:26px;font-weight:600;line-height:80px;height:80px;
@@ -301,6 +302,7 @@ body{
       <div class="action-roller" id="actionRoller">
         <div class="item">读一页书</div>
       </div>
+      <div id="rollHint" style="font-size:13px;color:var(--text2);margin-top:24px;opacity:0;">点一下屏幕停止</div>
     </div>
   </div>
 
@@ -423,7 +425,7 @@ body{
   <div id="toast" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card);color:var(--text);padding:10px 24px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 4px 24px rgba(0,0,0,.15);opacity:0;transition:opacity .3s;pointer-events:none;z-index:200;white-space:nowrap;"></div>
 
   <!-- ===== FOOTER ===== -->
-  <div class="footer"><span style="font-size:12px;color:var(--text2);opacity:.4;">自我探索 v1.4</span> · <a href="#" id="clearData" style="font-size:12px;">重置</a></div>
+  <div class="footer"><span style="font-size:12px;color:var(--text2);opacity:.4;">自我探索 v1.5</span> · <a href="#" id="clearData" style="font-size:12px;">重置</a></div>
 </div>
 
 <script>
@@ -479,6 +481,9 @@ let currentAction = null;
 let timerInterval = null;
 let timerEndAt = 0;
 let totalSeconds = 0;
+let rollFiltered = null;
+let rollIndex = 0;
+let rollLandTimer = null;
 
 // ============================================================
 //  Scene detection
@@ -510,6 +515,12 @@ function getFilteredActions(scene){
 //  UI: IDLE
 // ============================================================
 function renderIdle(){
+  // Clean up any running roll state
+  if(rollTimer){ clearInterval(rollTimer); rollTimer = null; }
+  if(rollLandTimer){ clearTimeout(rollLandTimer); rollLandTimer = null; }
+  rollFiltered = null;
+  document.getElementById('rollHint').style.opacity = '0';
+
   const scene = getScene();
   const filtered = getFilteredActions(scene);
   document.getElementById('idle-screen').classList.add('active');
@@ -545,6 +556,7 @@ function startRoll(){
     renderIdle();
     return;
   }
+  rollFiltered = filtered;
 
   document.getElementById('idle-screen').classList.remove('active');
   document.getElementById('rolling-screen').classList.add('active');
@@ -560,26 +572,33 @@ function startRoll(){
   el.textContent = filtered[0].name;
   roller.appendChild(el);
 
+  // Show tap hint
+  const hint = document.getElementById('rollHint');
+  hint.style.opacity = '0';
+  setTimeout(() => { hint.style.opacity = '.6'; }, 500);
+
   let i = 0;
   if(rollTimer) clearInterval(rollTimer);
   rollTimer = setInterval(() => {
     el.textContent = filtered[i % filtered.length].name;
+    rollIndex = i;
     i++;
-    // Randomize speed — slow then fast then land
   }, 60);
 
-  // After ~1.2s, land
-  setTimeout(() => {
+  // After ~1.8s, auto-land
+  if(rollLandTimer) clearTimeout(rollLandTimer);
+  rollLandTimer = setTimeout(() => {
     clearInterval(rollTimer);
     rollTimer = null;
+    rollLandTimer = null;
+    hint.style.opacity = '0';
     const chosen = filtered[Math.floor(Math.random() * filtered.length)];
     el.textContent = chosen.name;
     el.style.animation = 'none';
-    // Brief pause then start
     setTimeout(() => {
       startAction(chosen);
     }, 400);
-  }, 1200);
+  }, 1800);
 }
 
 function startAction(action){
@@ -695,6 +714,25 @@ function showDone(){
 // ============================================================
 // Start
 document.getElementById('startBtn').addEventListener('click', startRoll);
+
+// Rolling screen: tap to stop and start current action
+document.getElementById('rolling-screen').addEventListener('click', () => {
+  if(!document.getElementById('rolling-screen').classList.contains('active')) return;
+  if(!rollTimer) return;
+  clearInterval(rollTimer);
+  rollTimer = null;
+  if(rollLandTimer){
+    clearTimeout(rollLandTimer);
+    rollLandTimer = null;
+  }
+  if(!rollFiltered || rollFiltered.length === 0) return;
+  const el = document.querySelector('#actionRoller .item');
+  const chosen = rollFiltered[rollIndex % rollFiltered.length];
+  el.textContent = chosen.name;
+  el.style.animation = 'none';
+  document.getElementById('rollHint').style.opacity = '0';
+  setTimeout(() => startAction(chosen), 300);
+});
 
 // Exit active
 document.getElementById('exitActiveBtn').addEventListener('click', () => {
