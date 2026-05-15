@@ -415,8 +415,10 @@ body{
         <div class="modal-title">导入数据</div>
         <button class="modal-close" id="importClose">✕</button>
       </div>
-      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">粘贴从另一台设备导出的 JSON 数据</div>
+      <div style="font-size:13px;color:var(--text2);margin-bottom:10px;">粘贴 JSON 数据，或选择文件导入</div>
       <textarea id="importTextarea" style="width:100%;height:140px;padding:12px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;font-family:monospace;background:var(--bg);color:var(--text);resize:none;outline:none;" placeholder='[{"name":"读一页书","duration":300,...}]'></textarea>
+      <input type="file" id="importFileInput" accept=".json" style="display:none">
+      <button class="btn-ghost" id="importFileBtn" style="margin-top:8px;text-align:center;width:100%;">📁 选择文件</button>
       <button class="btn-primary" id="importConfirmBtn" style="margin-top:12px;">导入并替换当前数据</button>
     </div>
   </div>
@@ -1005,6 +1007,42 @@ document.getElementById('importConfirmBtn').addEventListener('click', () => {
   }catch(e){
     showToast('JSON 解析失败，请检查格式');
   }
+});
+
+// 文件导入
+document.getElementById('importFileBtn').addEventListener('click', () => {
+  document.getElementById('importFileInput').click();
+});
+document.getElementById('importFileInput').addEventListener('change', (e) => {
+  const file = e.target.files[0];
+  if(!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    try{
+      const imported = JSON.parse(ev.target.result);
+      if(!Array.isArray(imported) || imported.length === 0){
+        showToast('数据格式不对，请检查');
+        return;
+      }
+      for(const a of imported){
+        if(!a.name || !a.duration || !a.scenes){
+          showToast('数据格式不完整，请检查');
+          return;
+        }
+      }
+      actions = imported;
+      saveActions(actions);
+      document.getElementById('importOverlay').classList.remove('open');
+      renderActionList();
+      updateSceneToggleButtons();
+      renderIdle();
+      showToast(`已导入 ${actions.length} 个行动`);
+    }catch(e){
+      showToast('JSON 解析失败，请检查格式');
+    }
+  };
+  reader.readAsText(file);
+  e.target.value = '';
 });
 
 // ============================================================
