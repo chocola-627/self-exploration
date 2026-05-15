@@ -912,10 +912,19 @@ function showToast(msg){
 
 document.getElementById('exportBtn').addEventListener('click', () => {
   const data = JSON.stringify(actions, null, 2);
+  const blob = new Blob([data], { type: 'application/json' });
+  const file = new File([blob], `自我探索-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' });
+
+  // 支持 Web Share API 的设备（iPhone → AirDrop 到 Mac）
+  if (navigator.canShare && navigator.canShare({ files: [file] })) {
+    navigator.share({ files: [file], title: '自我探索数据' }).catch(() => {});
+    return;
+  }
+
+  // Fallback: 复制到剪贴板
   navigator.clipboard.writeText(data).then(() => {
-    showToast('已复制到剪贴板，发送到手机即可');
+    showToast('已复制到剪贴板');
   }).catch(() => {
-    // Fallback: select from a temp textarea
     const ta = document.createElement('textarea');
     ta.value = data;
     document.body.appendChild(ta);
