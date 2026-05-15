@@ -421,6 +421,16 @@ body{
     </div>
   </div>
 
+  <!-- ===== EXPORT MENU ===== -->
+  <div id="exportMenu" style="display:none;position:fixed;bottom:0;left:0;right:0;max-width:440px;margin:0 auto;background:var(--card);border-radius:16px 16px 0 0;padding:16px;z-index:300;box-shadow:0 -4px 24px rgba(0,0,0,.15);animation:fadeIn .2s ease;">
+    <div style="font-size:14px;font-weight:600;color:var(--text2);text-align:center;margin-bottom:12px;padding-bottom:12px;border-bottom:1px solid var(--border);">导出方式</div>
+    <button class="export-opt" data-method="share" style="display:block;width:100%;padding:14px;border:none;border-radius:12px;background:transparent;color:var(--text);font-size:16px;cursor:pointer;text-align:center;">📤 分享（AirDrop）</button>
+    <button class="export-opt" data-method="file" style="display:block;width:100%;padding:14px;border:none;border-radius:12px;background:transparent;color:var(--text);font-size:16px;cursor:pointer;text-align:center;">💾 下载文件</button>
+    <button class="export-opt" data-method="clipboard" style="display:block;width:100%;padding:14px;border:none;border-radius:12px;background:transparent;color:var(--text);font-size:16px;cursor:pointer;text-align:center;">📋 复制到剪贴板</button>
+    <button id="exportMenuCancel" style="display:block;width:100%;padding:14px;margin-top:8px;border:none;border-radius:12px;background:transparent;color:var(--text2);font-size:16px;cursor:pointer;text-align:center;">取消</button>
+  </div>
+  <div id="exportOverlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,.3);z-index:299;" onclick="document.getElementById('exportOverlay').style.display='none';document.getElementById('exportMenu').style.display='none';"></div>
+
   <!-- ===== TOAST ===== -->
   <div id="toast" style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);background:var(--card);color:var(--text);padding:10px 24px;border-radius:12px;font-size:14px;font-weight:500;box-shadow:0 4px 24px rgba(0,0,0,.15);opacity:0;transition:opacity .3s;pointer-events:none;z-index:200;white-space:nowrap;"></div>
 
@@ -910,29 +920,47 @@ function showToast(msg){
   setTimeout(() => { t.style.opacity = '0'; }, 2000);
 }
 
-document.getElementById('exportBtn').addEventListener('click', () => {
+function doExport(method){
   const data = JSON.stringify(actions, null, 2);
   const blob = new Blob([data], { type: 'application/json' });
-  const file = new File([blob], `自我探索-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' });
-
-  // 支持 Web Share API 的设备（iPhone → AirDrop 到 Mac）
-  if (navigator.canShare && navigator.canShare({ files: [file] })) {
-    navigator.share({ files: [file], title: '自我探索数据' }).catch(() => {});
-    return;
+  if(method === 'share'){
+    const file = new File([blob], `自我探索-${new Date().toISOString().slice(0, 10)}.json`, { type: 'application/json' });
+    if(navigator.canShare && navigator.canShare({ files: [file] })){
+      navigator.share({ files: [file], title: '自我探索数据' }).catch(() => {});
+    }else{
+      showToast('当前设备不支持分享');
+    }
+  }else if(method === 'file'){
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `自我探索-${new Date().toISOString().slice(0, 10)}.json`;
+    document.body.appendChild(a); a.click(); a.remove();
+    URL.revokeObjectURL(url);
+    showToast('数据已导出');
+  }else if(method === 'clipboard'){
+    navigator.clipboard.writeText(data).then(() => showToast('已复制到剪贴板')).catch(() => {
+      const ta = document.createElement('textarea');
+      ta.value = data; document.body.appendChild(ta); ta.select();
+      document.execCommand('copy'); ta.remove();
+      showToast('已复制到剪贴板');
+    });
   }
-
-  // Fallback: 复制到剪贴板
-  navigator.clipboard.writeText(data).then(() => {
-    showToast('已复制到剪贴板');
-  }).catch(() => {
-    const ta = document.createElement('textarea');
-    ta.value = data;
-    document.body.appendChild(ta);
-    ta.select();
-    document.execCommand('copy');
-    ta.remove();
-    showToast('已复制到剪贴板');
+}
+document.getElementById('exportBtn').addEventListener('click', () => {
+  document.getElementById('exportOverlay').style.display = 'block';
+  document.getElementById('exportMenu').style.display = 'block';
+});
+document.querySelectorAll('.export-opt[data-method]').forEach(btn => {
+  btn.addEventListener('click', () => {
+    document.getElementById('exportOverlay').style.display = 'none';
+    document.getElementById('exportMenu').style.display = 'none';
+    doExport(btn.dataset.method);
   });
+});
+document.getElementById('exportMenuCancel').addEventListener('click', () => {
+  document.getElementById('exportOverlay').style.display = 'none';
+  document.getElementById('exportMenu').style.display = 'none';
 });
 
 document.getElementById('importBtn').addEventListener('click', () => {
